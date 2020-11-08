@@ -1,6 +1,7 @@
 import peewee
 from peewee import *
 import datetime
+from utils import info
 
 db = MySQLDatabase('Finanse', user='root', passwd='yangliuming')
 
@@ -18,17 +19,6 @@ class Book(BaseModel):
     is_default = BooleanField(constraints=[SQL("DEFAULT False")])
     user_id = ForeignKeyField(User, backref="books")
 
-class Bill(BaseModel):
-    amount = FloatField(constraints=[Check("amount >= 0.0"), SQL("DEFAULT 0.0")])
-    inout_type = CharField(max_length=10, constraints=[Check("inout_type='支出' OR inout_type='收入' OR inout_type='转账'"),
-                                                       SQL("DEFAULT '支出'")])
-    created_datetime = DateTimeField(null=True, constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
-    billing_date = DateField(null=True)
-    billing_time = TimeField(null=True)
-    comments = CharField(null=True, max_length=50)
-    book_id = ForeignKeyField(Book, backref="bills")
-    user_id = ForeignKeyField(User, backref="bills")
-
 class AccountGroup(BaseModel):
     account_group_name = CharField(max_length=30)
     comments = CharField(null=True, max_length=50)
@@ -45,6 +35,32 @@ class Account(BaseModel):
                                       SQL("DEFAULT 'RMB'")])
     user_id = ForeignKeyField(User, backref="accounts")
     account_group_id = ForeignKeyField(AccountGroup, backref="accounts")
+
+class Bill(BaseModel):
+    amount = FloatField(constraints=[Check("amount >= 0.0"), SQL("DEFAULT 0.0")])
+    inout_type = CharField(max_length=10,
+                           constraints=[Check("inout_type='支出' OR inout_type='收入'"),
+                                        SQL("DEFAULT '支出'")])
+    created_datetime = DateTimeField(null=True,
+                                     constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
+    billing_date = DateField(null=True)
+    billing_time = TimeField(null=True)
+    comments = CharField(null=True, max_length=50)
+    account_id = ForeignKeyField(Account, backref="bills")
+    book_id = ForeignKeyField(Book, backref="bills")
+    user_id = ForeignKeyField(User, backref="bills")
+
+class Transfer(BaseModel):
+    amount = FloatField(constraints=[Check("amount >= 0.0"), SQL("DEFAULT 0.0")])
+    created_datetime = DateTimeField(null=True,
+                                     constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
+    transfer_date = DateField(null=True)
+    transfer_time = TimeField(null=True)
+    comments = CharField(null=True, max_length=50)
+    from_account_id = ForeignKeyField(Account, backref="bills")
+    to_account_id = ForeignKeyField(Account, backref="bills")
+    book_id = ForeignKeyField(Book, backref="bills")
+    user_id = ForeignKeyField(User, backref="bills")
 
 class AccountStatMonth(BaseModel):
     date = DateField()
