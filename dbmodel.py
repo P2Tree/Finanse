@@ -1,9 +1,8 @@
-import peewee
 from peewee import *
 import datetime
 from utils import info
 
-db = MySQLDatabase('Finanse', user='root', passwd='yangliuming')
+from app import db
 
 class BaseModel(Model):
     class Meta:
