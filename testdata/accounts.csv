@@ -1,0 +1,4 @@
+name,is_credit,init_balance,remain_balance,currency,group,user
+工商银行储蓄卡,False,0.0,0.0,RMB,储备消费,y
+浦发银行信用卡,True,0.0,0.0,RMB,日常开支,y
+朝朝盈,False,0.0,0.0,RMB,保本应急,y

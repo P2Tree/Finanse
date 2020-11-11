@@ -1,81 +1,112 @@
+# -*- coding:utf-8 -*-
 from utils import info, warning, error, ask
 from datetime import datetime, date, time
 import csv
 
 from dbdriver import DatabaseDriver
+from dbdriver import NotFindItemError
 from dbmodel import User, Book, Bill, Transfer, \
                           Account, AccountGroup, AccountStatMonth
 from app import db
 
-def CreateTestBill(driver):
+def create_test_bill(driver):
     try:
-        filename = "testdata/bills.csv"
-        billsFile = open(filename, "r")
-        billsReader = csv.DictReader(billsFile)
-    except:
+        filename = 'testdata/bills.csv'
+        bills_file = open(filename, 'r')
+        bills_reader = csv.DictReader(bills_file)
+    except Exception():
         error("CSV file %s read failed." % filename)
         return
 
-    for bill in billsReader:
-        if driver.get_user().nickname != bill["user"]:
-            warning("Current bill's user is %s, not you." % bill["user"])
+    for bill in bills_reader:
+        if driver.get_user().nickname != bill['user']:
+            warning("Current bill's user is %s, not you." % bill['user'])
             continue
 
         try:
-            account = driver.get_account(bill["account"])
-            book = driver.get_book(bill["book"])
-        except:
+            account = driver.get_account(bill['account'])
+            book = driver.get_book(bill['book'])
+        except NotFindItemError as e:
+            warning(e.args[0])
             warning("Current bill insert failed.")
             continue
 
-        driver.create_bill(float(bill["amount"]), bill["inout"], account, bill["billing_date"],
-                           bill["billing_time"], bill["comments"], book)
+        driver.create_bill(float(bill['amount']), bill['inout'], account,
+                           bill['billing_date'], bill['billing_time'],
+                           bill['comments'], book)
 
     info("Test bills are inserted.")
 
-def CreateTestTransfer(driver):
+def create_test_transfer(driver):
     try:
-        filename = "testdata/transfers.csv"
-        transferFile = open(filename, "r")
-        transferReader = csv.DictReader(transferFile)
-    except:
+        filename = 'testdata/transfers.csv'
+        transfer_file = open(filename, 'r')
+        transfer_reader = csv.DictReader(transfer_file)
+    except Exception():
         error("CSV file %s read failed." % filename)
         return
 
-    for transfer in transferReader:
-        if driver.get_user().nickname != transfer["user"]:
-            warning("Current transfer's user is %s, not you." % transfer["user"])
+    for transfer in transfer_reader:
+        if driver.get_user().nickname != transfer['user']:
+            warning("Current transfer's user is %s, not you." % transfer['user'])
             continue
 
         try:
-            from_account = driver.get_account(transfer["from_account"])
-            to_account = driver.get_account(transfer["to_account"])
-            book = driver.get_book(transfer["book"])
-        except:
+            from_account = driver.get_account(transfer['from_account'])
+            to_account = driver.get_account(transfer['to_account'])
+            book = driver.get_book(transfer['book'])
+        except NotFindItemError as e:
+            warning(e.args[0])
             warning("Current transfer insert failed.")
             continue
 
-        driver.create_transfer(float(transfer["amount"]), from_account, to_account, transfer["transfer_date"],
-                               transfer["transfer_time"], transfer["comments"], book)
+        driver.create_transfer(float(transfer['amount']), from_account, to_account,
+                               transfer['transfer_date'], transfer['transfer_time'],
+                               transfer['comments'], book)
 
     info("Test transfers are inserted.")
 
+def create_test_account(driver):
+    try:
+        filename = 'testdata/accounts.csv'
+        account_file = open(filename, 'r')
+        account_reader = csv.DictReader(account_file)
+    except Exception():
+        error("CSV file %s read failed." % filename)
+        return
+
+    for account in account_reader:
+        if driver.get_user().nickname != account['user']:
+            warning("Current account's user is %s, not you." % account['user'])
+            continue
+
+        try:
+            driver.get_account_group(name=account['group'])
+        except NotFindItemError as e:
+            warning(e.args[0])
+            # create new account group at the meantime in create new account
+            driver.create_account_group(account['group'])
+
+        try:
+            account = driver.get_account(name=account['name'])
+        except NotFindItemError:
+            account = driver.create_account(name=account['name'],
+                                            is_credit=bool(account['is_credit']),
+                                            group_name=account['group'],
+                                            currency=account['currency'])
+        else:
+            warning("Account %s is already existed." % account['name'])
+
+    info("Test accounts are created.")
+
 def InitDatabase(driver):
     # 创建账本
-    book = driver.create_book("日常账本")
-    # 创建账户分组
-    groups = []
-    groups.append(driver.create_account_group("住房基金", "用于住房支出"))
-    groups.append(driver.create_account_group("日常开支", "日常消费使用"))
-    # 创建账户，并指定分组
-    normal_accounts = []
-    credit_accounts = []
-    normal_accounts.append(driver.create_account("工商银行储蓄卡", False, "储备消费"))
-    normal_accounts.append(driver.create_account("朝朝盈", False, "保本应急"))
-    credit_accounts.append(driver.create_account("浦发银行信用卡", True, "日常开支"))
+    driver.create_book("日常账本")
+    # 创建账户和账户分组
+    create_test_account(driver)
     # 创建账单条目
-    CreateTestBill(driver)
-    CreateTestTransfer(driver)
+    create_test_bill(driver)
+    create_test_transfer(driver)
     # 创建账户月统计信息
     # 日期、账户、余额、调整额、利息收入、投资收入、常规收入（>0）、常规支出（>0）、转账
     driver.create_account_stat_month("2020-10", "工商银行储蓄卡", 1000.2, 0.0, 0.8, -10.0, 5000.0, 89.8, -20.0)

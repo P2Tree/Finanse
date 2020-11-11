@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 def info(info):
     print("\033[1;32m", end='')
     print("[Info] \033[0m", end='')

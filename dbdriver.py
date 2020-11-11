@@ -1,9 +1,19 @@
-from utils import info, warning, error, ask
-from datetime import datetime, date, time
+# -*- coding:utf-8 -*-
+"""
+This module is used for drive database and provide APIs to operate the database.
+"""
+from datetime import datetime
+from utils import info, warning, ask
 
 from dbmodel import User, Book, Bill, Transfer, \
                           Account, AccountGroup, AccountStatMonth
 from app import db
+
+class NotFindItemError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+    pass
 
 class DatabaseDriver():
     def __init__(self):
@@ -14,14 +24,22 @@ class DatabaseDriver():
         return self.current_user
 
     # May throw exception
-    def get_account(self, account_name):
+    def get_account(self, name):
         try:
-            account = Account.get(account_name=account_name)
+            account = Account.get(account_name=name)
         except Account.DoesNotExist:
-            warning("Not find account %s" % account_name)
-            raise Exception("Not find account %s" % account_name)
+            raise NotFindItemError("Not find account %s." % name)
         else:
             return account
+
+    # May throw exception
+    def get_account_group(self, name):
+        try:
+            group = AccountGroup.get(account_group_name=name)
+        except AccountGroup.DoesNotExist:
+            raise NotFindItemError("Not find account group %s." % name)
+        else:
+            return group
 
     def get_all_accounts(self):
         accounts = Account.select().execute()
@@ -32,8 +50,7 @@ class DatabaseDriver():
         try:
             book = Book.get(book_name=book_name)
         except Book.DoesNotExist:
-            warning("Not find book %s" % book_name)
-            raise Exception("Not find book %s" % book_name)
+            raise NotFindItemError("Not find book %s." % book_name)
         else:
             return book
 
@@ -111,9 +128,12 @@ class DatabaseDriver():
 
         return current_book[0]
 
-    def create_account(self, name, is_credit=False, group_name=None):
+    def create_account(self, name, is_credit=False, group_name=None, currency=None):
         if not group_name:
             group = AccountGroup.get_or_create(account_group_name="未分组")[0]
+
+        if not currency:
+            currency = "RMB"
 
         try:
             group = AccountGroup.get(account_group_name=group_name, user_id=self.current_user.id)
@@ -121,7 +141,10 @@ class DatabaseDriver():
             warning("Account group %s is not existed." % group_name)
             return None
 
-        account = Account.get_or_create(account_name=name, is_credit=is_credit, user_id=self.current_user.id, account_group_id=group.id, currency="Dollar")
+        account = Account.get_or_create(account_name=name, is_credit=is_credit,
+                                        user_id=self.current_user.id,
+                                        account_group_id=group.id,
+                                        currency=currency)
 
         if account[1]:
             info("New account %s created." % name)
