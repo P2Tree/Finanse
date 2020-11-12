@@ -26,8 +26,8 @@ def create_test_bill(driver):
         try:
             account = driver.get_account(bill['account'])
             book = driver.get_book(bill['book'])
-        except NotFindItemError as e:
-            warning(e.args[0])
+        except NotFindItemError as err:
+            warning(err.args[0])
             warning("Current bill insert failed.")
             continue
 
@@ -55,8 +55,8 @@ def create_test_transfer(driver):
             from_account = driver.get_account(transfer['from_account'])
             to_account = driver.get_account(transfer['to_account'])
             book = driver.get_book(transfer['book'])
-        except NotFindItemError as e:
-            warning(e.args[0])
+        except NotFindItemError as err:
+            warning(err.args[0])
             warning("Current transfer insert failed.")
             continue
 
@@ -82,8 +82,8 @@ def create_test_account(driver):
 
         try:
             driver.get_account_group(name=account['group'])
-        except NotFindItemError as e:
-            warning(e.args[0])
+        except NotFindItemError as err:
+            warning(err.args[0])
             # create new account group at the meantime in create new account
             driver.create_account_group(account['group'])
 
@@ -99,6 +99,29 @@ def create_test_account(driver):
 
     info("Test accounts are created.")
 
+def create_test_month_stat(driver):
+    try:
+        filename = 'testdata/month_stats.csv'
+        stat_file = open(filename, 'r')
+        stat_reader = csv.DictReader(stat_file)
+    except Exception():
+        error("CSV file %s read failed." % filename)
+        return
+
+    for stat in stat_reader:
+        try:
+            driver.get_account(name=stat['account'])
+        except NotFindItemError:
+            warning("Account %s is not existed." % stat['account'])
+            continue
+
+        driver.create_account_stat_month(
+                stat['month'], stat['account'], stat['amount'], stat['adjust'],
+                stat['interest_income'], stat['invest_income'], stat['normal_income'],
+                stat['normal_outcome'], stat['transfer'])
+
+    info("Test month statistics are created.")
+
 def InitDatabase(driver):
     # 创建账本
     driver.create_book("日常账本")
@@ -109,9 +132,10 @@ def InitDatabase(driver):
     create_test_transfer(driver)
     # 创建账户月统计信息
     # 日期、账户、余额、调整额、利息收入、投资收入、常规收入（>0）、常规支出（>0）、转账
-    driver.create_account_stat_month("2020-10", "工商银行储蓄卡", 1000.2, 0.0, 0.8, -10.0, 5000.0, 89.8, -20.0)
-    driver.create_account_stat_month("2020-11", "工商银行储蓄卡", 2000.2, 1.0, 0.2, 30.0, 5000.0, 50.8, -20.0)
-    driver.create_account_stat_month("2020-10", "浦发银行信用卡", -110.5, 5.0, 0.0, 0.0, 0.0, 898.8, 20.0)
+    create_test_month_stat(driver)
+    #  driver.create_account_stat_month("2020-10", "工商银行储蓄卡", 1000.2, 0.0, 0.8, -10.0, 5000.0, 89.8, -20.0)
+    #  driver.create_account_stat_month("2020-11", "工商银行储蓄卡", 2000.2, 1.0, 0.2, 30.0, 5000.0, 50.8, -20.0)
+    #  driver.create_account_stat_month("2020-10", "浦发银行信用卡", -110.5, 5.0, 0.0, 0.0, 0.0, 898.8, 20.0)
 
 def CheckDatabase(driver):
     # 查看账户
@@ -147,19 +171,19 @@ def CheckDatabase(driver):
 if __name__ == "__main__":
     db.connect(reuse_if_open = True)
 
-    driver = DatabaseDriver()
+    db_driver = DatabaseDriver()
 
     ins = ask("Sign in (1) or sign up (2): ")
     if ins == '1':
-        driver.login()
+        db_driver.login()
     elif ins == '2':
-        driver.create_user()
+        db_driver.create_user()
     else:
         error("Wrong input.")
         exit()
 
-    InitDatabase(driver)
+    InitDatabase(db_driver)
 
-    CheckDatabase(driver)
+    CheckDatabase(db_driver)
 
     db.close()
