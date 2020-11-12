@@ -5,7 +5,7 @@ import csv
 
 from dbdriver import DatabaseDriver
 from dbdriver import NotFindItemError
-from dbmodel import User, Book, Bill, Transfer, \
+from dbmodel import User, Bill, Transfer, \
                           Account, AccountGroup, AccountStatMonth
 from app import db
 
@@ -18,22 +18,21 @@ def create_test_bill(driver):
         error("CSV file %s read failed." % filename)
         return
 
-    for bill in bills_reader:
-        if driver.get_user().nickname != bill['user']:
-            warning("Current bill's user is %s, not you." % bill['user'])
+    for bill_item in bills_reader:
+        if driver.get_user().nickname != bill_item['user']:
+            warning("Current bill's user is %s, not you." % bill_item['user'])
             continue
 
         try:
-            account = driver.get_account(bill['account'])
-            book = driver.get_book(bill['book'])
+            account = driver.get_account(bill_item['account'])
         except NotFindItemError as err:
             warning(err.args[0])
             warning("Current bill insert failed.")
             continue
 
-        driver.create_bill(float(bill['amount']), bill['inout'], account,
-                           bill['billing_date'], bill['billing_time'],
-                           bill['comments'], book)
+        driver.create_bill(float(bill_item['amount']), bill_item['inout'], account,
+                           bill_item['billing_date'], bill_item['billing_time'],
+                           bill_item['comments'])
 
     info("Test bills are inserted.")
 
@@ -46,23 +45,22 @@ def create_test_transfer(driver):
         error("CSV file %s read failed." % filename)
         return
 
-    for transfer in transfer_reader:
-        if driver.get_user().nickname != transfer['user']:
-            warning("Current transfer's user is %s, not you." % transfer['user'])
+    for transfer_item in transfer_reader:
+        if driver.get_user().nickname != transfer_item['user']:
+            warning("Current transfer's user is %s, not you." % transfer_item['user'])
             continue
 
         try:
-            from_account = driver.get_account(transfer['from_account'])
-            to_account = driver.get_account(transfer['to_account'])
-            book = driver.get_book(transfer['book'])
+            from_account = driver.get_account(transfer_item['from_account'])
+            to_account = driver.get_account(transfer_item['to_account'])
         except NotFindItemError as err:
             warning(err.args[0])
             warning("Current transfer insert failed.")
             continue
 
-        driver.create_transfer(float(transfer['amount']), from_account, to_account,
-                               transfer['transfer_date'], transfer['transfer_time'],
-                               transfer['comments'], book)
+        driver.create_transfer(float(transfer_item['amount']), from_account, to_account,
+                               transfer_item['transfer_date'], transfer_item['transfer_time'],
+                               transfer_item['comments'])
 
     info("Test transfers are inserted.")
 
@@ -75,27 +73,27 @@ def create_test_account(driver):
         error("CSV file %s read failed." % filename)
         return
 
-    for account in account_reader:
-        if driver.get_user().nickname != account['user']:
-            warning("Current account's user is %s, not you." % account['user'])
+    for account_item in account_reader:
+        if driver.get_user().nickname != account_item['user']:
+            warning("Current account's user is %s, not you." % account_item['user'])
             continue
 
         try:
-            driver.get_account_group(name=account['group'])
+            driver.get_account_group(name=account_item['group'])
         except NotFindItemError as err:
             warning(err.args[0])
             # create new account group at the meantime in create new account
-            driver.create_account_group(account['group'])
+            driver.create_account_group(account_item['group'])
 
         try:
-            account = driver.get_account(name=account['name'])
+            driver.get_account(name=account_item['name'])
         except NotFindItemError:
-            account = driver.create_account(name=account['name'],
-                                            is_credit=bool(account['is_credit']),
-                                            group_name=account['group'],
-                                            currency=account['currency'])
+            driver.create_account(name=account_item['name'],
+                                            is_credit=bool(account_item['is_credit']),
+                                            group_name=account_item['group'],
+                                            currency=account_item['currency'])
         else:
-            warning("Account %s is already existed." % account['name'])
+            warning("Account %s is already existed." % account_item['name'])
 
     info("Test accounts are created.")
 
@@ -122,9 +120,7 @@ def create_test_month_stat(driver):
 
     info("Test month statistics are created.")
 
-def InitDatabase(driver):
-    # 创建账本
-    driver.create_book("日常账本")
+def init_database(driver):
     # 创建账户和账户分组
     create_test_account(driver)
     # 创建账单条目
@@ -133,11 +129,8 @@ def InitDatabase(driver):
     # 创建账户月统计信息
     # 日期、账户、余额、调整额、利息收入、投资收入、常规收入（>0）、常规支出（>0）、转账
     create_test_month_stat(driver)
-    #  driver.create_account_stat_month("2020-10", "工商银行储蓄卡", 1000.2, 0.0, 0.8, -10.0, 5000.0, 89.8, -20.0)
-    #  driver.create_account_stat_month("2020-11", "工商银行储蓄卡", 2000.2, 1.0, 0.2, 30.0, 5000.0, 50.8, -20.0)
-    #  driver.create_account_stat_month("2020-10", "浦发银行信用卡", -110.5, 5.0, 0.0, 0.0, 0.0, 898.8, 20.0)
 
-def CheckDatabase(driver):
+def check_database(driver):
     # 查看账户
     info("Check all of accounts in the datebase:")
     accounts = driver.get_all_accounts()
@@ -152,10 +145,9 @@ def CheckDatabase(driver):
         info("Check all of bills in the account %s" % account.account_name)
         bills = driver.get_all_bills(account)
         for bill in bills:
-            book_name = Book.get(id=bill.book_id).book_name
-            info("amount: %f, inout_type: %s, billing_date: %s, billing_time: %s, comments: %s, book: %s" %
+            info("amount: %f, inout_type: %s, billing_date: %s, billing_time: %s, comments: %s" %
                     (bill.amount, bill.inout_type, bill.billing_date,
-                        bill.billing_time, bill.comments, book_name))
+                        bill.billing_time, bill.comments))
 
         # 同时查看账户的月统计信息
         info("Check all of month statistics of the account %s" % account.account_name)
@@ -182,8 +174,12 @@ if __name__ == "__main__":
         error("Wrong input.")
         exit()
 
-    InitDatabase(db_driver)
+    init_database(db_driver)
 
-    CheckDatabase(db_driver)
+    # check_database(db_driver)
+
+    #  db_driver.month_stat_sumup("2020-10")
+    #  db_driver.month_stat_sumup("2020-11")
+    db_driver.account_stat_sumup("工商银行储蓄卡", "2020-10")
 
     db.close()

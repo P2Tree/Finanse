@@ -3,9 +3,9 @@
 This module is used for drive database and provide APIs to operate the database.
 """
 from datetime import datetime
-from utils import info, warning, ask
+from utils import info, error, warning, ask
 
-from dbmodel import User, Book, Bill, Transfer, \
+from dbmodel import User, Bill, Transfer, \
                           Account, AccountGroup, AccountStatMonth
 from app import db
 
@@ -45,31 +45,18 @@ class DatabaseDriver():
         accounts = Account.select().execute()
         return accounts
 
-    # May throw exception
-    def get_book(self, book_name):
-        try:
-            book = Book.get(book_name=book_name)
-        except Book.DoesNotExist:
-            raise NotFindItemError("Not find book %s." % book_name)
-        else:
-            return book
-
-    def get_all_bills(self, account, book=None):
-        if not book:
-            bills = Bill.select().where(Bill.account_id==account.id and
-                                        Bill.user_id==self.current_user.id).execute()
+    def get_all_bills(self, account):
+        bills = Bill.select().where(Bill.account_id==account.id and
+                                    Bill.user_id==self.current_user.id).execute()
         return bills
 
-    def get_all_stat_months(self, account, book=None):
-        if not book:
-            stat_months = AccountStatMonth.select().where(AccountStatMonth.account_id==account.id)
+    def get_all_stat_months(self, account):
+        stat_months = AccountStatMonth.select().where(AccountStatMonth.account_id==account.id)
         return stat_months
 
     def create_database(self):
         if not db.table_exists("user"):
             User.create_table()
-        if not db.table_exists("book"):
-            Book.create_table()
         if not db.table_exists("accountgroup"):
             AccountGroup.create_table()
         if not db.table_exists("account"):
@@ -115,18 +102,6 @@ class DatabaseDriver():
             info("User %s already existed." % nickname)
 
         self.current_user = user[0]
-
-    def create_book(self, name):
-        book_name = self.current_user.nickname + "的" + name
-        current_book = Book.get_or_create(
-                book_name=book_name, is_default=True, user_id=self.current_user.id)
-
-        if current_book[1]:
-            info("New book %s created." % book_name)
-        else:
-            info("Book %s is already existed." % book_name)
-
-        return current_book[0]
 
     def create_account(self, name, is_credit=False, group_name=None, currency=None):
         if not group_name:
@@ -191,14 +166,66 @@ class DatabaseDriver():
                         datetime.strptime(date_str, '%Y-%m-%d').year,
                         datetime.strptime(date_str, '%Y-%m-%d').month))
 
-    def create_bill(self, amount, inout, account, date, time, comments, book):
+    def create_bill(self, amount, inout, account, date, time, comments):
         Bill.insert(amount=amount, inout_type=inout, account_id=account.id,
                     billing_date=date, billing_time=time, comments=comments,
-                    book_id=book.id, user_id=self.current_user.id).execute()
+                    user_id=self.current_user.id).execute()
 
-    def create_transfer(self, amount, from_account, to_account, date, time, comments, book):
+    def create_transfer(self, amount, from_account, to_account, date, time, comments):
         Transfer.insert(amount=amount, from_account_id=from_account.id,
                         to_account_id=to_account.id, transfer_date=date,
                         transfer_time=time, comments=comments,
-                        book_id=book.id, user_id=self.current_user.id).execute()
+                        user_id=self.current_user.id).execute()
+
+    def month_stat_sumup(self, month):
+        stat_months = AccountStatMonth.select().where(
+                AccountStatMonth.date==month+'-01')
+
+        if not stat_months:
+            warning("No statistic item be found in %s month" % month)
+            return
+
+        sumups = {'amount': 0.0, 'adjust': 0.0, 'interest_income': 0.0,
+                'invest_income': 0.0, 'normal_income': 0.0, 'normal_outcome': 0.0,
+                'transfer': 0.0}
+        for stat in stat_months:
+            sumups['amount'] += stat.amount
+            sumups['adjust'] += stat.adjust
+            sumups['interest_income'] += stat.interest_income
+            sumups['invest_income'] += stat.invest_income
+            sumups['normal_income'] += stat.normal_income
+            sumups['normal_outcome'] += stat.normal_outcome
+            sumups['transfer'] += stat.transfer
+
+        info("Statistic data in %s is:" % month)
+        for k,v in sumups.items():
+            info("sumup %s: %f" % (k, v))
+
+    def account_stat_sumup(self, account_name, month):
+        try:
+            account = self.get_account(account_name)
+        except NotFindItemError as err:
+            warning(err.args[0])
+            return
+
+        stat_account = AccountStatMonth.select().where(
+                AccountStatMonth.account_id==account.id,
+                AccountStatMonth.date==month+'-01')
+
+        if not stat_account:
+            warning("No statistic item be found of account %s" % account.account_name)
+            return
+
+        reminde = 0.0
+        amount = 0.0
+        for stat in stat_account:
+            reminde += stat.adjust + stat.interest_income + stat.invest_income + \
+                      stat.normal_income + stat.normal_outcome + stat.transfer
+            amount += stat.amount
+
+        info("Amount remaind of %s in %s is: %f" % (account_name, month, reminde))
+        info("Amount amount of %s in %s is: %f" % (account_name, month, amount))
+
+
+
 

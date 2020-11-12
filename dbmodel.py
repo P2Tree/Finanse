@@ -14,11 +14,6 @@ class User(BaseModel):
     password = CharField(max_length=64)
     nickname = CharField(max_length=30)
 
-class Book(BaseModel):
-    book_name = CharField(max_length=20, unique=True)
-    is_default = BooleanField(constraints=[SQL("DEFAULT False")])
-    user_id = ForeignKeyField(User, backref="books")
-
 class AccountGroup(BaseModel):
     account_group_name = CharField(max_length=30)
     comments = CharField(null=True, max_length=50)
@@ -47,7 +42,6 @@ class Bill(BaseModel):
     billing_time = TimeField(null=True)
     comments = CharField(null=True, max_length=50)
     account_id = ForeignKeyField(Account, backref="bills")
-    book_id = ForeignKeyField(Book, backref="bills")
     user_id = ForeignKeyField(User, backref="bills")
 
 class Transfer(BaseModel):
@@ -59,7 +53,6 @@ class Transfer(BaseModel):
     comments = CharField(null=True, max_length=50)
     from_account_id = ForeignKeyField(Account, backref="bills")
     to_account_id = ForeignKeyField(Account, backref="bills")
-    book_id = ForeignKeyField(Book, backref="bills")
     user_id = ForeignKeyField(User, backref="bills")
 
 class AccountStatMonth(BaseModel):
